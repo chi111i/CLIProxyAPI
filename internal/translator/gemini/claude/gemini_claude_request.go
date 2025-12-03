@@ -164,6 +164,15 @@ func ConvertClaudeRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 			}
 		}
 	}
+
+	// For thinking-capable models, always send default thinkingConfig when none specified.
+	// This ensures models like gemini-claude-sonnet-4-5-thinking work correctly with Claude format.
+	// Uses dynamic budget (-1) and enables include_thoughts to match expected behavior.
+	if !gjson.Get(out, "generationConfig.thinkingConfig").Exists() && util.ModelSupportsThinking(modelName) {
+		out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", -1)
+		out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
+	}
+
 	if v := gjson.GetBytes(rawJSON, "temperature"); v.Exists() && v.Type == gjson.Number {
 		out, _ = sjson.Set(out, "generationConfig.temperature", v.Num)
 	}
