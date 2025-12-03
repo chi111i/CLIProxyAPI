@@ -1,11 +1,15 @@
 package util
 
 import (
+	"strings"
+
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 )
 
 // ModelSupportsThinking reports whether the given model has Thinking capability
 // according to the model registry metadata (provider-agnostic).
+// Falls back to checking model name patterns (suffix "-thinking" or contains "-thinking-")
+// for models not yet registered (e.g., dynamically fetched models like gemini-claude-sonnet-4-5-thinking).
 func ModelSupportsThinking(model string) bool {
 	if model == "" {
 		return false
@@ -13,7 +17,11 @@ func ModelSupportsThinking(model string) bool {
 	if info := registry.GetGlobalRegistry().GetModelInfo(model); info != nil {
 		return info.Thinking != nil
 	}
-	return false
+	// Fallback: check model name patterns for dynamically registered models
+	// This matches the logic in FetchAntigravityModels which adds Thinking support
+	// for models with "-thinking" suffix or containing "-thinking-"
+	lower := strings.ToLower(model)
+	return strings.HasSuffix(lower, "-thinking") || strings.Contains(lower, "-thinking-")
 }
 
 // NormalizeThinkingBudget clamps the requested thinking budget to the
