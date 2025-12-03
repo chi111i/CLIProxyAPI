@@ -171,6 +171,15 @@ func ConvertClaudeRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 			}
 		}
 	}
+
+	// For thinking-capable models, always send default thinkingConfig when none specified.
+	// This ensures models like gemini-claude-sonnet-4-5-thinking work correctly with Claude format.
+	// Uses dynamic budget (-1) and enables include_thoughts to match expected behavior.
+	if !gjson.Get(out, "request.generationConfig.thinkingConfig").Exists() && util.ModelSupportsThinking(modelName) {
+		out, _ = sjson.Set(out, "request.generationConfig.thinkingConfig.thinkingBudget", -1)
+		out, _ = sjson.Set(out, "request.generationConfig.thinkingConfig.include_thoughts", true)
+	}
+
 	if v := gjson.GetBytes(rawJSON, "temperature"); v.Exists() && v.Type == gjson.Number {
 		out, _ = sjson.Set(out, "request.generationConfig.temperature", v.Num)
 	}

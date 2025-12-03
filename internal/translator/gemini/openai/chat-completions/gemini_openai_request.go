@@ -88,6 +88,14 @@ func ConvertOpenAIRequestToGemini(modelName string, inputRawJSON []byte, _ bool)
 		}
 	}
 
+	// For thinking-capable models, always send default thinkingConfig when none specified.
+	// This ensures models like gemini-claude-sonnet-4-5-thinking work correctly with OpenAI format.
+	// Uses dynamic budget (-1) and enables include_thoughts to match Gemini CLI behavior.
+	if !gjson.GetBytes(out, "generationConfig.thinkingConfig").Exists() && util.ModelSupportsThinking(modelName) {
+		out, _ = sjson.SetBytes(out, "generationConfig.thinkingConfig.thinkingBudget", -1)
+		out, _ = sjson.SetBytes(out, "generationConfig.thinkingConfig.include_thoughts", true)
+	}
+
 	// Temperature/top_p/top_k
 	if tr := gjson.GetBytes(rawJSON, "temperature"); tr.Exists() && tr.Type == gjson.Number {
 		out, _ = sjson.SetBytes(out, "generationConfig.temperature", tr.Num)

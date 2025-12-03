@@ -435,14 +435,12 @@ func ConvertOpenAIResponsesRequestToGemini(modelName string, inputRawJSON []byte
 		}
 	}
 
-	// For gemini-3-pro-preview, always send default thinkingConfig when none specified.
-	// This matches the official Gemini CLI behavior which always sends:
-	// { thinkingBudget: -1, includeThoughts: true }
-	// See: ai-gemini-cli/packages/core/src/config/defaultModelConfigs.ts
-	if !gjson.Get(out, "generationConfig.thinkingConfig").Exists() && modelName == "gemini-3-pro-preview" {
+	// For thinking-capable models, always send default thinkingConfig when none specified.
+	// This ensures models like gemini-claude-sonnet-4-5-thinking work correctly with OpenAI format.
+	// Uses dynamic budget (-1) and enables include_thoughts to match Gemini CLI behavior.
+	if !gjson.Get(out, "generationConfig.thinkingConfig").Exists() && util.ModelSupportsThinking(modelName) {
 		out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", -1)
 		out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
-		// log.Debugf("Applied default thinkingConfig for gemini-3-pro-preview (matches Gemini CLI): thinkingBudget=-1, include_thoughts=true")
 	}
 
 	result := []byte(out)
