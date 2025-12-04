@@ -90,7 +90,7 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 
 	// For gemini-3-pro-preview, always send default thinkingConfig when none specified.
 	// This matches the official Gemini CLI behavior which always sends:
-	// { thinkingBudget: -1, includeThoughts: true }
+	// { thinkingBudget: -1, include_thoughts: true }
 	// See: ai-gemini-cli/packages/core/src/config/defaultModelConfigs.ts
 	if !gjson.GetBytes(out, "request.generationConfig.thinkingConfig").Exists() && modelName == "gemini-3-pro-preview" {
 		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", -1)
@@ -102,7 +102,7 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 	// This ensures thinking mode is enabled by default for thinking models.
 	if !gjson.GetBytes(out, "request.generationConfig.thinkingConfig").Exists() && strings.HasSuffix(modelName, "-thinking") {
 		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", 1024)
-		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.includeThoughts", true)
+		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.include_thoughts", true)
 	}
 
 	// Temperature/top_p/top_k
