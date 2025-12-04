@@ -18,8 +18,11 @@ const (
 //
 // Thinking is enabled for:
 // - Models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking)
-// - gemini-2.5-pro and gemini-2.5-pro-image
-// - Models starting with "gemini-3-pro-"
+// - gemini-2.5-pro and gemini-2.5-pro-image explicitly
+// - Models starting with "gemini-3-pro-" (e.g., gemini-3-pro-preview, gemini-3-pro-image-preview)
+//
+// Note: "gemini-3-pro" without a suffix is NOT matched by the prefix check,
+// matching the Antigravity2api reference behavior.
 func IsAntigravityThinkingModel(modelName string) bool {
 	return strings.HasSuffix(modelName, "-thinking") ||
 		modelName == "gemini-2.5-pro" ||
