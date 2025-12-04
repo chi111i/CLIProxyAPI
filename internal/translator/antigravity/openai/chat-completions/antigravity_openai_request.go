@@ -97,6 +97,14 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.include_thoughts", true)
 	}
 
+	// For models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking),
+	// always enable thinkingConfig when none is specified, similar to Antigravity2api behavior.
+	// This ensures thinking mode is enabled by default for thinking models.
+	if !gjson.GetBytes(out, "request.generationConfig.thinkingConfig").Exists() && strings.HasSuffix(modelName, "-thinking") {
+		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", 1024)
+		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.includeThoughts", true)
+	}
+
 	// Temperature/top_p/top_k
 	if tr := gjson.GetBytes(rawJSON, "temperature"); tr.Exists() && tr.Type == gjson.Number {
 		out, _ = sjson.SetBytes(out, "request.generationConfig.temperature", tr.Num)
