@@ -19,8 +19,9 @@ import (
 
 // convertCliResponseToOpenAIChatParams holds parameters for response conversion.
 type convertCliResponseToOpenAIChatParams struct {
-	UnixTimestamp int64
-	FunctionIndex int
+	UnixTimestamp   int64
+	FunctionIndex   int
+	ThinkingStarted bool
 }
 
 // ConvertAntigravityResponseToOpenAI translates a single chunk of a streaming response from the
@@ -40,12 +41,22 @@ type convertCliResponseToOpenAIChatParams struct {
 func ConvertAntigravityResponseToOpenAI(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
 	if *param == nil {
 		*param = &convertCliResponseToOpenAIChatParams{
-			UnixTimestamp: 0,
-			FunctionIndex: 0,
+			UnixTimestamp:   0,
+			FunctionIndex:   0,
+			ThinkingStarted: false,
 		}
 	}
 
+	// Handle [DONE] signal - close thinking block if still open
 	if bytes.Equal(rawJSON, []byte("[DONE]")) {
+		params := (*param).(*convertCliResponseToOpenAIChatParams)
+		if params.ThinkingStarted {
+			// Emit final closing tag for thinking block
+			params.ThinkingStarted = false
+			closeTemplate := `{"id":"","object":"chat.completion.chunk","created":12345,"model":"model","choices":[{"index":0,"delta":{"role":"assistant","content":"\n</think>\n"},"finish_reason":null}]}`
+			closeTemplate, _ = sjson.Set(closeTemplate, "created", params.UnixTimestamp)
+			return []string{closeTemplate}
+		}
 		return []string{}
 	}
 
@@ -123,11 +134,26 @@ func ConvertAntigravityResponseToOpenAI(_ context.Context, _ string, originalReq
 
 			if partTextResult.Exists() {
 				textContent := partTextResult.String()
+				params := (*param).(*convertCliResponseToOpenAIChatParams)
 
 				// Handle text content, distinguishing between regular content and reasoning/thoughts.
+				// Following Antigravity2api reference: wrap thinking content with <think></think> tags
+				// and send as content field for broader client compatibility.
 				if partResult.Get("thought").Bool() {
+					// Start thinking block if not already started
+					if !params.ThinkingStarted {
+						textContent = "<think>\n" + textContent
+						params.ThinkingStarted = true
+					}
+					// Set both reasoning_content (OpenAI o1 style) and content (Antigravity2api style)
 					template, _ = sjson.Set(template, "choices.0.delta.reasoning_content", textContent)
+					template, _ = sjson.Set(template, "choices.0.delta.content", textContent)
 				} else {
+					// Close thinking block if it was open
+					if params.ThinkingStarted {
+						textContent = "\n</think>\n" + textContent
+						params.ThinkingStarted = false
+					}
 					template, _ = sjson.Set(template, "choices.0.delta.content", textContent)
 				}
 				template, _ = sjson.Set(template, "choices.0.delta.role", "assistant")
