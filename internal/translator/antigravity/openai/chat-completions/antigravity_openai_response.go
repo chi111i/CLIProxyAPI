@@ -17,6 +17,14 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+const (
+	// thinkingTagOpen is the opening tag for thinking content blocks.
+	// Following Antigravity2api reference implementation for client compatibility.
+	thinkingTagOpen = "<think>\n"
+	// thinkingTagClose is the closing tag for thinking content blocks.
+	thinkingTagClose = "\n</think>\n"
+)
+
 // convertCliResponseToOpenAIChatParams holds parameters for response conversion.
 type convertCliResponseToOpenAIChatParams struct {
 	UnixTimestamp   int64
@@ -53,8 +61,9 @@ func ConvertAntigravityResponseToOpenAI(_ context.Context, _ string, originalReq
 		if params.ThinkingStarted {
 			// Emit final closing tag for thinking block
 			params.ThinkingStarted = false
-			closeTemplate := `{"id":"","object":"chat.completion.chunk","created":12345,"model":"model","choices":[{"index":0,"delta":{"role":"assistant","content":"\n</think>\n"},"finish_reason":null}]}`
+			closeTemplate := `{"id":"","object":"chat.completion.chunk","created":0,"model":"model","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}`
 			closeTemplate, _ = sjson.Set(closeTemplate, "created", params.UnixTimestamp)
+			closeTemplate, _ = sjson.Set(closeTemplate, "choices.0.delta.content", thinkingTagClose)
 			return []string{closeTemplate}
 		}
 		return []string{}
@@ -142,7 +151,7 @@ func ConvertAntigravityResponseToOpenAI(_ context.Context, _ string, originalReq
 				if partResult.Get("thought").Bool() {
 					// Start thinking block if not already started
 					if !params.ThinkingStarted {
-						textContent = "<think>\n" + textContent
+						textContent = thinkingTagOpen + textContent
 						params.ThinkingStarted = true
 					}
 					// Set both reasoning_content (OpenAI o1 style) and content (Antigravity2api style)
@@ -151,7 +160,7 @@ func ConvertAntigravityResponseToOpenAI(_ context.Context, _ string, originalReq
 				} else {
 					// Close thinking block if it was open
 					if params.ThinkingStarted {
-						textContent = "\n</think>\n" + textContent
+						textContent = thinkingTagClose + textContent
 						params.ThinkingStarted = false
 					}
 					template, _ = sjson.Set(template, "choices.0.delta.content", textContent)
