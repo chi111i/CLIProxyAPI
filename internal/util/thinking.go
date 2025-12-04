@@ -1,8 +1,41 @@
 package util
 
 import (
+	"strings"
+
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 )
+
+const (
+	// DefaultThinkingBudget is the default thinking budget value used when enabling
+	// thinking for models via Antigravity. This follows the Antigravity2api reference.
+	DefaultThinkingBudget = 1024
+)
+
+// IsAntigravityThinkingModel determines if a model should have thinking enabled
+// when used through the Antigravity provider. This follows the Antigravity2api
+// reference implementation logic.
+//
+// Thinking is enabled for:
+// - Models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking)
+// - gemini-2.5-pro and gemini-2.5-pro-image explicitly
+// - Models starting with "gemini-3-pro-" (e.g., gemini-3-pro-preview, gemini-3-pro-image-preview)
+//
+// Note: "gemini-3-pro" without a suffix is NOT matched by the prefix check,
+// matching the Antigravity2api reference behavior.
+func IsAntigravityThinkingModel(modelName string) bool {
+	return strings.HasSuffix(modelName, "-thinking") ||
+		modelName == "gemini-2.5-pro" ||
+		modelName == "gemini-2.5-pro-image" ||
+		strings.HasPrefix(modelName, "gemini-3-pro-")
+}
+
+// IsAntigravityClaudeModel determines if a model is a Claude model in the
+// Antigravity context. Claude models require special handling when thinking
+// is enabled (e.g., removal of topP parameter).
+func IsAntigravityClaudeModel(modelName string) bool {
+	return strings.Contains(modelName, "claude")
+}
 
 // ModelSupportsThinking reports whether the given model has Thinking capability
 // according to the model registry metadata (provider-agnostic).
