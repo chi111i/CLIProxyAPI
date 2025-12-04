@@ -88,19 +88,19 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 		}
 	}
 
-	// For gemini-3-pro-preview, always send default thinkingConfig when none specified.
-	// This matches the official Gemini CLI behavior which always sends:
-	// { thinkingBudget: -1, include_thoughts: true }
-	// See: ai-gemini-cli/packages/core/src/config/defaultModelConfigs.ts
-	if !gjson.GetBytes(out, "request.generationConfig.thinkingConfig").Exists() && modelName == "gemini-3-pro-preview" {
-		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", -1)
-		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.include_thoughts", true)
-	}
+	// Determine if thinking should be enabled for this model based on Antigravity2api logic.
+	// Enable thinking for:
+	// 1. Models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking)
+	// 2. gemini-2.5-pro and gemini-2.5-pro-image
+	// 3. Models starting with "gemini-3-pro-"
+	enableThinking := strings.HasSuffix(modelName, "-thinking") ||
+		modelName == "gemini-2.5-pro" ||
+		modelName == "gemini-2.5-pro-image" ||
+		strings.HasPrefix(modelName, "gemini-3-pro-")
 
-	// For models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking),
-	// always enable thinkingConfig when none is specified, similar to Antigravity2api behavior.
-	// This ensures thinking mode is enabled by default for thinking models.
-	if !gjson.GetBytes(out, "request.generationConfig.thinkingConfig").Exists() && strings.HasSuffix(modelName, "-thinking") {
+	// For models that should enable thinking, set default thinkingConfig when none specified.
+	// This matches the Antigravity2api behavior which always sends thinkingConfig for thinking models.
+	if !gjson.GetBytes(out, "request.generationConfig.thinkingConfig").Exists() && enableThinking {
 		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", 1024)
 		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.include_thoughts", true)
 	}
@@ -114,6 +114,12 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 	}
 	if tkr := gjson.GetBytes(rawJSON, "top_k"); tkr.Exists() && tkr.Type == gjson.Number {
 		out, _ = sjson.SetBytes(out, "request.generationConfig.topK", tkr.Num)
+	}
+
+	// Per Antigravity2api reference: when thinking is enabled for Claude models, remove topP.
+	// This is required for proper thinking chain operation with Claude models via Antigravity.
+	if enableThinking && strings.Contains(modelName, "claude") {
+		out, _ = sjson.DeleteBytes(out, "request.generationConfig.topP")
 	}
 
 	// Map OpenAI modalities -> Gemini CLI request.generationConfig.responseModalities

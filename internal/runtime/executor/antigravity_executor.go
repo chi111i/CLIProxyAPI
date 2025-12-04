@@ -701,10 +701,19 @@ func geminiToAntigravity(modelName string, payload []byte) []byte {
 		})
 	}
 
-	// For Claude models with thinking enabled (ending with -thinking suffix),
-	// remove topP from generationConfig per Antigravity2api reference implementation.
-	// Match model names like gemini-claude-sonnet-4-5-thinking or claude-sonnet-4-5-thinking
-	if strings.Contains(modelName, "-claude-") && strings.HasSuffix(modelName, "-thinking") {
+	// Determine if thinking is enabled for this model based on Antigravity2api logic.
+	// Enable thinking for:
+	// 1. Models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking)
+	// 2. gemini-2.5-pro and gemini-2.5-pro-image
+	// 3. Models starting with "gemini-3-pro-"
+	enableThinking := strings.HasSuffix(modelName, "-thinking") ||
+		modelName == "gemini-2.5-pro" ||
+		modelName == "gemini-2.5-pro-image" ||
+		strings.HasPrefix(modelName, "gemini-3-pro-")
+
+	// Per Antigravity2api reference: when thinking is enabled for Claude models, remove topP.
+	// This is required for proper thinking chain operation with Claude models via Antigravity.
+	if enableThinking && strings.Contains(modelName, "claude") {
 		template, _ = sjson.Delete(template, "request.generationConfig.topP")
 	}
 
