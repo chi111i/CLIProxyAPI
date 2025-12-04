@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
@@ -701,19 +702,13 @@ func geminiToAntigravity(modelName string, payload []byte) []byte {
 		})
 	}
 
-	// Determine if thinking is enabled for this model based on Antigravity2api logic.
-	// Enable thinking for:
-	// 1. Models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking)
-	// 2. gemini-2.5-pro and gemini-2.5-pro-image
-	// 3. Models starting with "gemini-3-pro-"
-	enableThinking := strings.HasSuffix(modelName, "-thinking") ||
-		modelName == "gemini-2.5-pro" ||
-		modelName == "gemini-2.5-pro-image" ||
-		strings.HasPrefix(modelName, "gemini-3-pro-")
+	// Use shared utility function to determine if thinking is enabled for this model.
+	// This ensures consistent logic across the codebase.
+	enableThinking := util.IsAntigravityThinkingModel(modelName)
 
 	// Per Antigravity2api reference: when thinking is enabled for Claude models, remove topP.
 	// This is required for proper thinking chain operation with Claude models via Antigravity.
-	if enableThinking && strings.Contains(modelName, "claude") {
+	if enableThinking && util.IsAntigravityClaudeModel(modelName) {
 		template, _ = sjson.Delete(template, "request.generationConfig.topP")
 	}
 

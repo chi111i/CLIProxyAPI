@@ -88,20 +88,14 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 		}
 	}
 
-	// Determine if thinking should be enabled for this model based on Antigravity2api logic.
-	// Enable thinking for:
-	// 1. Models ending with "-thinking" (e.g., gemini-claude-sonnet-4-5-thinking)
-	// 2. gemini-2.5-pro and gemini-2.5-pro-image
-	// 3. Models starting with "gemini-3-pro-"
-	enableThinking := strings.HasSuffix(modelName, "-thinking") ||
-		modelName == "gemini-2.5-pro" ||
-		modelName == "gemini-2.5-pro-image" ||
-		strings.HasPrefix(modelName, "gemini-3-pro-")
+	// Use shared utility function to determine if thinking should be enabled for this model.
+	// This ensures consistent logic across the codebase.
+	enableThinking := util.IsAntigravityThinkingModel(modelName)
 
 	// For models that should enable thinking, set default thinkingConfig when none specified.
 	// This matches the Antigravity2api behavior which always sends thinkingConfig for thinking models.
 	if !gjson.GetBytes(out, "request.generationConfig.thinkingConfig").Exists() && enableThinking {
-		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", 1024)
+		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", util.DefaultThinkingBudget)
 		out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.include_thoughts", true)
 	}
 
@@ -118,7 +112,7 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 
 	// Per Antigravity2api reference: when thinking is enabled for Claude models, remove topP.
 	// This is required for proper thinking chain operation with Claude models via Antigravity.
-	if enableThinking && strings.Contains(modelName, "claude") {
+	if enableThinking && util.IsAntigravityClaudeModel(modelName) {
 		out, _ = sjson.DeleteBytes(out, "request.generationConfig.topP")
 	}
 
